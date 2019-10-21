@@ -24,6 +24,13 @@ from __future__ import absolute_import
 
 from .artist import *
 from .primitiveartist import *
+
+from .pointartist import *
+from .circleartist import *
+from .lineartist import *
+from .planeartist import *
+
+
 from .meshartist import *
 from .networkartist import *
 from .volmeshartist import *
