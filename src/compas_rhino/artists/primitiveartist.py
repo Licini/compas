@@ -4,6 +4,8 @@ from __future__ import division
 
 import compas
 import compas_rhino
+from compas.geometry import Object
+import time
 
 try:
     import rhinoscriptsyntax as rs
@@ -15,12 +17,80 @@ except ImportError:
 __all__ = ['PrimitiveArtist']
 
 
-class PrimitiveArtist(object):
+class PrimitiveArtist(Object):
 
     """The ``PrimitiveArtist`` defines functionality for drawing geometric primitives in Rhino.
     """
 
     __module__ = "compas_rhino.artists"
+
+    def __init__(self, geometry, layer=None, attributes=None):
+
+        self._layer = None
+        self.layer = layer
+        self.defaults = {
+            'color.point'   : (255, 255, 255),
+            'color.line'    : (0, 0, 0),
+            'color.polygon' : (210, 210, 210),
+        }
+
+        self._last_transformation = None
+
+        super(PrimitiveArtist, self).__init__(geometry, attributes)
+
+    @property
+    def layer(self):
+        """str: The layer that contains the mesh."""
+        return self._layer
+
+    @layer.setter
+    def layer(self, value):
+        self._layer = value
+
+    def redraw(self, timeout=None):
+        """Redraw the Rhino view.
+
+        Parameters
+        ----------
+        timeout : float, optional
+            The amount of time the artist waits before updating the Rhino view.
+            The time should be specified in seconds.
+            Default is ``None``.
+
+        """
+        if timeout:
+            time.sleep(timeout)
+        rs.EnableRedraw(True)
+        rs.Redraw()
+
+    def clear_layer(self):
+        """Clear the main layer of the artist."""
+        if self.layer:
+            compas_rhino.clear_layer(self.layer)
+        else:
+            compas_rhino.clear_current_layer()
+
+    def _update_to_rhino(self):
+        if hasattr(self, 'GUID'):
+            T = self.transformation_world
+            # TODO: access rhino's object transformation directly
+            if self._last_transformation is not None:
+                T = self._last_transformation.inverse() * T
+            rs.TransformObject(self.GUID, T.matrix)
+            self._last_transformation = self.transformation_world.copy()
+
+    def draw(self, timeout=None):
+        """Update and draw the bounded compas geometry in rhino"""
+        self._update_to_rhino()
+        for c in self.children:
+            c._update_to_rhino()
+        self.redraw(timeout)
+
+    def hide(self):
+        rs.HideObject(self.GUID)
+
+    def show(self):
+        rs.ShowObject(self.GUID)
 
     # ==========================================================================
     # drawing functions

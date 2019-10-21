@@ -502,4 +502,6 @@ from .triangulation import *
 
 from .primitives import *
 
+from .object import Object
+
 __all__ = [name for name in dir() if not name.startswith('_')]
