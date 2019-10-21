@@ -6,6 +6,8 @@ import compas
 import compas_rhino
 
 from compas.geometry import centroid_polygon
+from compas.geometry import Point, Line
+from compas.geometry import Circle as Circle_C
 
 from compas_rhino.utilities import create_layers_from_path
 from compas_rhino.utilities import clear_layer
@@ -163,10 +165,16 @@ def draw_points(points, **kwargs):
     """
     guids = []
     for p in iter(points):
-        pos   = p['pos']
-        name  = p.get('name', '')
-        color = p.get('color')
-        layer = p.get('layer')
+        if isinstance(p, Point):
+            pos   = [p.x, p.y, p.z]
+            name  = None
+            color = None
+            layer = None
+        else:
+            pos   = p['pos']
+            name  = p.get('name', '')
+            color = p.get('color')
+            layer = p.get('layer')
         guid  = add_point(Point3d(*pos))
         if not guid:
             continue
@@ -196,13 +204,22 @@ def draw_lines(lines, **kwargs):
     """
     guids = []
     for l in iter(lines):
-        sp    = l['start']
-        ep    = l['end']
-        name  = l.get('name', '')
-        color = l.get('color')
-        arrow = l.get('arrow')
-        layer = l.get('layer')
-        width = l.get('width')
+        if isinstance(l, Line):
+            sp    = [l.start.x, l.start.y, l.start.z]
+            ep    = [l.end.x, l.end.y, l.end.z]
+            name  = None
+            color = None
+            arrow = None
+            layer = None
+            width = None
+        else:
+            sp    = l['start']
+            ep    = l['end']
+            name  = l.get('name', '')
+            color = l.get('color')
+            arrow = l.get('arrow')
+            layer = l.get('layer')
+            width = l.get('width')
         guid  = add_line(Point3d(*sp), Point3d(*ep))
         if not guid:
             continue
@@ -578,11 +595,21 @@ def _face_to_max_quad(points, face):
 def draw_circles(circles, **kwargs):
     guids = []
     for data in iter(circles):
-        point, normal = data['plane']
-        radius = data['radius']
-        name = data.get('name', '')
-        color = data.get('color')
-        layer = data.get('layer')
+        if isinstance(data, Circle_C):
+            point = data.center
+            point = [point.x, point.y, point.z]
+            normal = data.normal
+            normal = [normal.x, normal.y, normal.z]
+            radius = data.radius
+            name = None
+            color = None
+            layer = None
+        else:
+            point, normal = data['plane']
+            radius = data['radius']
+            name = data.get('name', '')
+            color = data.get('color')
+            layer = data.get('layer')
         circle = Circle(Plane(Point3d(*point), Vector3d(*normal)), radius)
         guid = add_circle(circle)
         if not guid:
