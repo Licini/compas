@@ -37,9 +37,9 @@ class Item(forms.TreeGridItem):
 
 
 
-class TreeForm(Dialog):
+class TreeForm(forms.Form):
 
-    def __init__(self, scene):
+    def setup(self, scene):
 
         self.m_treegridview = forms.TreeGridView()
         self.m_treegridview.Size = drawing.Size(200, 500)
@@ -116,7 +116,9 @@ class TreeForm(Dialog):
 
     def on_activated(self, sender, event):
         try:
-            SceneNodePropertyForm(event.Item.SceneNode).show()
+            p = SceneNodePropertyForm()
+            p.setup(event.Item.SceneNode)
+            p.Show()
         except Exception as e:
             print(e)
 
@@ -154,5 +156,6 @@ if __name__ == '__main__':
 
     scene.update()
 
-    p = TreeForm(scene)
-    p.show()
+    t = TreeForm()
+    t.setup(scene)
+    t.Show()

@@ -6,6 +6,9 @@ from __future__ import division
 import compas
 
 try:
+    import rhinoscriptsyntax as rs 
+    import scriptcontext as sc
+    find_object = sc.doc.Objects.Find
     import System
     import Rhino.UI
     import Eto.Drawing as drawing
@@ -43,30 +46,49 @@ class Table(forms.GridView):
         return table
 
     @classmethod
-    def from_vertices(cls, mesh):
+    def from_vertices(cls, sceneNode):
+
+        mesh = sceneNode.item
         table = cls()
         table.add_column('key')
         table.add_column('x')
         table.add_column('y')
         table.add_column('z')
         table.DataStore = [[key, mesh.vertex[key]['x'], mesh.vertex[key]['y'], mesh.vertex[key]['z']] for key in mesh.vertices()]
+        table.CellClick += table.SelectEvent(sceneNode.artist.vertices)
         return table
 
     @classmethod
-    def from_edges(cls, mesh):
+    def from_edges(cls, sceneNode):
+        mesh = sceneNode.item
         table = cls()
-        table.add_column('vertex1')
-        table.add_column('vertex2')
-        table.DataStore = [list(edge) for edge in mesh.edges()]
+        table.add_column('key')
+        table.add_column('vertices')
+        table.DataStore = [[key, str(edge)] for key, edge in enumerate(mesh.edges())]
+        table.CellClick += table.SelectEvent(sceneNode.artist.edges)
         return table
 
     @classmethod
-    def from_faces(cls, mesh):
+    def from_faces(cls, sceneNode):
+        mesh = sceneNode.item
         table = cls()
         table.add_column('key')
         table.add_column('vertices')
         table.DataStore = [[key, str(mesh.face[key])] for key in mesh.faces()]
+        table.CellClick += table.SelectEvent(sceneNode.artist.faces)
         return table
+
+    def SelectEvent(self, GUIDs):
+        def on_selected(sender, event):
+            try:
+                rs.UnselectAllObjects()
+                key = event.Item[0]
+                print('clicked on', key)
+                find_object(GUIDs[key]).Select(True)
+            except Exception as e:
+                print(e)
+        
+        return on_selected
 
     def add_column(self, HeaderText=None, Editable=False):
         column = forms.GridColumn()
@@ -77,10 +99,9 @@ class Table(forms.GridView):
         self.Columns.Add(column)
 
 
-class SceneNodePropertyForm(forms.Dialog):
+class SceneNodePropertyForm(forms.Form):
 
-    # Initializer
-    def __init__(self, sceneNode):
+    def setup(self, sceneNode):
         self.Rnd = System.Random()
         self.Title = "Properties"
         self.TabControl = self.from_sceneNode(sceneNode)
@@ -137,17 +158,17 @@ class SceneNodePropertyForm(forms.Dialog):
         if isinstance(item, Mesh):
             tab = forms.TabPage()
             tab.Text = "Vertices"
-            tab.Content = Table.from_vertices(item)
+            tab.Content = Table.from_vertices(sceneNode)
             control.Pages.Add(tab)
 
             tab = forms.TabPage()
             tab.Text = "Edges"
-            tab.Content = Table.from_edges(item)
+            tab.Content = Table.from_edges(sceneNode)
             control.Pages.Add(tab)
 
             tab = forms.TabPage()
             tab.Text = "Faces"
-            tab.Content = Table.from_faces(item)
+            tab.Content = Table.from_faces(sceneNode)
             control.Pages.Add(tab)
 
         return control
@@ -163,8 +184,8 @@ class SceneNodePropertyForm(forms.Dialog):
         tab.TabPosition = forms.DockPosition.Top
         return tab
 
-    def show(self):
-        self.ShowModal(Rhino.UI.RhinoEtoApp.MainWindow)
+    # def show(self):
+    #     self.ShowModal(Rhino.UI.RhinoEtoApp.MainWindow)
 
 
 if __name__ == "__main__":
@@ -179,5 +200,6 @@ if __name__ == "__main__":
     
     scene.update()
 
-    dialog = SceneNodePropertyForm(node)
-    dialog.show()
+    dialog = SceneNodePropertyForm()
+    dialog.setup(node)
+    dialog.Show()
