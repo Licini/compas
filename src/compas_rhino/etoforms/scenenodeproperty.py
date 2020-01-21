@@ -6,7 +6,7 @@ from __future__ import division
 import compas
 
 try:
-    import rhinoscriptsyntax as rs 
+    import rhinoscriptsyntax as rs
     import scriptcontext as sc
     find_object = sc.doc.Objects.Find
     import System
@@ -22,7 +22,7 @@ from compas.datastructures import Mesh
 
 __all__ = ['SceneNodePropertyForm']
 
-class Table(forms.GridView):
+class Tree_Table(forms.TreeGridView):
     def __init__(self, ShowHeader=True):
         self.ShowHeader = ShowHeader
         self.Height = 300
@@ -32,17 +32,19 @@ class Table(forms.GridView):
         table = cls(ShowHeader=False)
         table.add_column()
         table.add_column()
-        data = []
 
-        data.append(['Type', sceneNode.item.__class__.__name__])
-        data.append(['Name', sceneNode.artist.name])
-        data.append(['Layer', sceneNode.artist.layer])
+        treecollection = forms.TreeGridItemCollection()
+        treecollection.Add(forms.TreeGridItem(Values=('Type', sceneNode.item.__class__.__name__)))
+        treecollection.Add(forms.TreeGridItem(Values=('Name', sceneNode.artist.name)))
+        treecollection.Add(forms.TreeGridItem(Values=('Layer', sceneNode.artist.layer)))
 
         if hasattr(sceneNode.artist, 'settings'):
+            settings = forms.TreeGridItem(Values=('Settings',))
+            treecollection.Add(settings)
             for key in sceneNode.artist.settings:
-                data.append([key, str(sceneNode.artist.settings[key])])
+                settings.Children.Add(forms.TreeGridItem(Values=(key, str(sceneNode.artist.settings[key]))))
     
-        table.DataStore = data
+        table.DataStore = treecollection
         return table
 
     @classmethod
@@ -54,7 +56,10 @@ class Table(forms.GridView):
         table.add_column('x')
         table.add_column('y')
         table.add_column('z')
-        table.DataStore = [[key, mesh.vertex[key]['x'], mesh.vertex[key]['y'], mesh.vertex[key]['z']] for key in mesh.vertices()]
+        treecollection = forms.TreeGridItemCollection()
+        for key in mesh.vertices():
+            treecollection.Add(forms.TreeGridItem(Values=(key, mesh.vertex[key]['x'], mesh.vertex[key]['y'], mesh.vertex[key]['z'])))
+        table.DataStore = treecollection
         table.CellClick += table.SelectEvent(sceneNode.artist.vertices)
         return table
 
@@ -64,8 +69,18 @@ class Table(forms.GridView):
         table = cls()
         table.add_column('key')
         table.add_column('vertices')
-        table.DataStore = [[key, str(edge)] for key, edge in enumerate(mesh.edges())]
-        table.CellClick += table.SelectEvent(sceneNode.artist.edges)
+        table.add_column('x')
+        table.add_column('y')
+        table.add_column('z')
+        treecollection = forms.TreeGridItemCollection()
+        for key, edge in enumerate(mesh.edges()):
+            edge_item = forms.TreeGridItem(Values=(key, str(edge)))
+            treecollection.Add(edge_item)
+            for key in edge:
+                vertex_item = forms.TreeGridItem(Values=('', key, mesh.vertex[key]['x'], mesh.vertex[key]['y'], mesh.vertex[key]['z']))
+                edge_item.Children.Add(vertex_item)
+        table.DataStore = treecollection
+        table.CellClick += table.SelectEvent(sceneNode.artist.edges, sceneNode.artist.vertices)
         return table
 
     @classmethod
@@ -74,17 +89,30 @@ class Table(forms.GridView):
         table = cls()
         table.add_column('key')
         table.add_column('vertices')
-        table.DataStore = [[key, str(mesh.face[key])] for key in mesh.faces()]
-        table.CellClick += table.SelectEvent(sceneNode.artist.faces)
+        table.add_column('x')
+        table.add_column('y')
+        table.add_column('z')
+        treecollection = forms.TreeGridItemCollection()
+        for key in mesh.faces():
+            face_item = forms.TreeGridItem(Values=(key, str(mesh.face[key])))
+            treecollection.Add(face_item)
+            for v in mesh.face[key]:
+                vertex_item = forms.TreeGridItem(Values=('', v, mesh.vertex[v]['x'], mesh.vertex[v]['y'], mesh.vertex[v]['z']))
+                face_item.Children.Add(vertex_item)
+        table.DataStore = treecollection
+        table.CellClick += table.SelectEvent(sceneNode.artist.faces, sceneNode.artist.vertices)
         return table
 
-    def SelectEvent(self, GUIDs):
+    def SelectEvent(self, GUIDs, GUIDs2=None):
         def on_selected(sender, event):
             try:
                 rs.UnselectAllObjects()
-                key = event.Item[0]
-                print('clicked on', key)
-                find_object(GUIDs[key]).Select(True)
+                key = event.Item.Values[0]
+                if key != '':
+                    find_object(GUIDs[key]).Select(True)
+                else:
+                    key = event.Item.Values[1]
+                    find_object(GUIDs2[key]).Select(True)
             except Exception as e:
                 print(e)
         
@@ -115,77 +143,32 @@ class SceneNodePropertyForm(forms.Form):
         self.Resizable = False
         self.ClientSize = drawing.Size(400, 600)
 
-    # Create the dialog content
-    def Create(self):
-        # create default tabs
-        # self.TabControl = self.DefaultTabs()
-        self.TabControl = self.from_mesh()
-        # create stack layout item for tabs
-        tab_items = forms.StackLayoutItem(self.TabControl, True)
-        # create stack layout for content
-        layout = forms.StackLayout()
-        layout.Spacing = 5
-        layout.HorizontalContentAlignment = forms.HorizontalAlignment.Stretch
-        # add the stuff above to this layout
-
-        layout.Items.Add(tab_items)
-        return layout
-
-    # Create the default tabs
-    def DefaultTabs(self):
-        # creates a tab control
-        control = self.CreateTabControl()
-
-        p = PropertyListForm(["name"], [1])
-        tab = forms.TabPage()
-        tab.Text = "Basic"
-        tab.Content = p.table
-        control.Pages.Add(tab)
-
-        return control
-
     def from_sceneNode(self, sceneNode):
-        # creates a tab control
-        control = self.CreateTabControl()
+        control = forms.TabControl()
+        control.TabPosition = forms.DockPosition.Top
 
         tab = forms.TabPage()
         tab.Text = "Basic"
-        tab.Content = Table.from_sceneNode(sceneNode)
+        tab.Content = Tree_Table.from_sceneNode(sceneNode)
         control.Pages.Add(tab)
 
-        item = sceneNode.item
-
-        if isinstance(item, Mesh):
+        if isinstance(sceneNode.item, Mesh):
             tab = forms.TabPage()
             tab.Text = "Vertices"
-            tab.Content = Table.from_vertices(sceneNode)
+            tab.Content = Tree_Table.from_vertices(sceneNode)
             control.Pages.Add(tab)
 
             tab = forms.TabPage()
             tab.Text = "Edges"
-            tab.Content = Table.from_edges(sceneNode)
+            tab.Content = Tree_Table.from_edges(sceneNode)
             control.Pages.Add(tab)
 
             tab = forms.TabPage()
             tab.Text = "Faces"
-            tab.Content = Table.from_faces(sceneNode)
+            tab.Content = Tree_Table.from_faces(sceneNode)
             control.Pages.Add(tab)
 
         return control
-
-    # Delegate function to tab position control
-    def DockPositionDelegate(self, position):
-        self.TabControl = position
-
-    # Creates the one and only tab control
-    def CreateTabControl(self):
-        tab = forms.TabControl()
-        # Orient the tabs at the top
-        tab.TabPosition = forms.DockPosition.Top
-        return tab
-
-    # def show(self):
-    #     self.ShowModal(Rhino.UI.RhinoEtoApp.MainWindow)
 
 
 if __name__ == "__main__":
