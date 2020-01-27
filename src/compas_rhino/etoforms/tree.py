@@ -3,6 +3,7 @@ from __future__ import absolute_import
 from __future__ import division
 
 import compas
+import compas_rhino
 
 try:
     import clr
@@ -13,6 +14,9 @@ except Exception:
     compas.raise_if_ironpython()
 
 try:
+    import rhinoscriptsyntax as rs
+    import scriptcontext as sc
+    find_object = sc.doc.Objects.Find
     import Rhino
     import Rhino.UI
     import Eto.Drawing as drawing
@@ -56,14 +60,8 @@ class TreeForm(forms.Form):
         type_column.DataCell = forms.TextBoxCell(1)
         self.m_treegridview.Columns.Add(type_column)
 
-        # select_column = forms.GridColumn()
-        # select_column.HeaderText = 'Selected'
-        # select_column.Editable = True
-        # select_column.DataCell = forms.CheckBoxCell(2)
-        # self.m_treegridview.Columns.Add(select_column)
-
         treecollection = forms.TreeGridItemCollection()
-        scene_node = Item(Values=('scene', 'Scene'))
+        scene_node = Item(Values=('scene',))
         for node in scene.nodes:
             item = Item(Values=(node.artist.name, node.item.__class__.__name__))
             item.SceneNode = node
@@ -88,6 +86,15 @@ class TreeForm(forms.Form):
         self.ClientSize = drawing.Size(400, 600)
 
         self.m_treegridview.Activated += self.on_activated
+        self.m_treegridview.CellClick += self.on_click
+
+    def on_click(self, sender, event):
+        try:
+            rs.UnselectAllObjects()
+            for guid in event.Item.SceneNode.artist.guids:
+                find_object(guid).Select(True)
+        except Exception as e:
+            print(e)
 
     @property
     def ok(self):

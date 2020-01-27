@@ -268,6 +268,7 @@ class MeshArtist(Artist):
         self.faces = self.draw_faces()
         self.vertices = self.draw_vertices()
         self.edges = self.draw_edges()
+        self.guids = self.vertices + self.edges + self.faces
 
     def draw_mesh(self, color=None, disjoint=False):
         """Draw the mesh as a consolidated RhinoMesh.
