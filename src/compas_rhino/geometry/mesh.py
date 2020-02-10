@@ -53,8 +53,11 @@ class RhinoMesh(RhinoGeometry):
     def faces(self):
         return map(list, compas_rhino.rs.MeshFaceVertices(self.guid))
 
-    def to_compas(self):
-        return Mesh.from_vertices_and_faces(self.vertices, self.faces)
+    def to_compas(self, cls=None):
+        if cls is not None:
+            return cls.from_vertices_and_faces(self.vertices, self.faces)
+        else:
+            return Mesh.from_vertices_and_faces(self.vertices, self.faces)
 
     # def get_vertex_coordinates(self):
     #     return [map(float, vertex) for vertex in rs.MeshVertices(self.guid)]
