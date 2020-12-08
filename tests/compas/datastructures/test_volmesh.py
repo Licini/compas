@@ -15,17 +15,11 @@ def test_data():
     vmesh1.to_json('temp/vmesh1.json')
     vmesh1.from_json('temp/vmesh1.json')
 
-    vmesh1.validate_data()
-    # vmesh1.validate_json()
-
     data1_ = vmesh1.to_data()
 
     assert data1 == data1_
 
     vmesh2 = VolMesh.from_data(data1_)
-
-    vmesh2.validate_data()
-    # vmesh2.validate_json()
 
     data2 = vmesh2.to_data()
 
